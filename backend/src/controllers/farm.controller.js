@@ -1,9 +1,9 @@
-const { prisma }= require('../config/dbHandler');
+const { prisma } = require('../config/dbHandler');
 const asyncHandler = require('../utils/asyncHandler');
 const { sendSuccess } = require('../utils/ApiResponse');
 const ApiError = require('../utils/ApiError');
 
-const createFarm = asyncHandler = (async (req, res) => {
+const createFarm = asyncHandler(async (req, res) => {
     const farm = await prisma.farm.create({ data: { ...req.body, ownerId: req.user.id } });
     sendSuccess(res, { statusCode: 201, message: 'Farm Created', data: { farm } });
 });

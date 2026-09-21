@@ -12,7 +12,7 @@ const updateMyProfile = asyncHandler(async (req, res) => {
     sendSuccess(res, { message: 'Profile Updated', data: { profile } });
 });
 
-const getPublicProfile = asyncHandler( async (req, res) => {
+const getPublicProfile = asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({
         where: { id: req.params.id },
         select: {
@@ -92,12 +92,12 @@ const listUsers = asyncHandler(async (req, res) => {
             },
             skip,
             take: limit,
-            orderBy: { createdAt: 'desc' } 
+            orderBy: { createdAt: 'desc' }
         }),
         prisma.user.count({ where })
     ]);
 
-    sendSuccess(res, {message: 'Users', data: users, meta: buildMeta({ page, limit, total }) });
+    sendSuccess(res, { message: 'Users', data: users, meta: buildMeta({ page, limit, total }) });
 });
 
 // Admin: verify/rejecy user's KYC
@@ -115,14 +115,14 @@ const setVerificationStatus = asyncHandler(async (req, res) => {
             body: `Your account verification status is now ${status}`
         }
     });
-    sendSuccess(res, { message: 'Verfication status updated', data: { user } });
+    sendSuccess(res, { message: 'Verification status updated', data: { user } });
 });
 
 // Admin: deactivate/activate an account
 const setActiveStatus = asyncHandler(async (req, res) => {
     const { isActive } = req.body;
     const user = await prisma.user.update({
-        where: { id: req.param.id },
+        where: { id: req.params.id },
         data: { isActive }
     });
     sendSuccess(res, { message: `User ${isActive ? 'activated' : 'deactivated'}`, data: { user } });

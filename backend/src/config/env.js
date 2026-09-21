@@ -18,15 +18,27 @@ const envSchema = z.object({
     OTP_PROVIDER: z.enum(['console', 'termii']).default('console'),
     OTP_EXPIRES_IN_MINUTES: z.coerce.number().default(10),
 
-        RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().default(15),
+    PAYMENT_PROVIDER: z.enum(['paystack', 'mock']).default('mock'),
+    PAYSTACK_SECRET_KEY: z.string().optional(),
+    PAYSTACK_PUBLIC_KEY: z.string().optional(),
+    PAYSTACK_BASE_URL: z.string().url().default('https://api.paystack.co'),
+    PAYSTACK_WEBHOOK_SECRET: z.string().optional(),
+
+    RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().default(15),
     RATE_LIMIT_MAX: z.coerce.number().default(200),
 });
 
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-    console.error('Imvalid environment variables:', parsed.error.flatten().fieldErrors);
-    process.exit(1);
+  console.error('❌ Invalid environment variables:', parsed.error.flatten().fieldErrors);
+  process.exit(1);
+}
+
+// Guard: paystack selected as the live provider but no secret key present.
+if (parsed.data.PAYMENT_PROVIDER === 'paystack' && !parsed.data.PAYSTACK_SECRET_KEY) {
+  console.error('❌ PAYMENT_PROVIDER=paystack requires PAYSTACK_SECRET_KEY to be set.');
+  process.exit(1);
 }
 
 module.exports = parsed.data;

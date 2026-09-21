@@ -14,7 +14,7 @@ const createListing = asyncHandler(async (req, res) => {
         }
     }
 
-    const category = await prisma.category.findUnique({ where: { id: rest.category.Id } });
+    const category = await prisma.category.findUnique({ where: { id: rest.categoryId } });
     if (!category) throw ApiError.badRequest('Invalid categoryId');
 
     const listing = await prisma.listing.create({
@@ -77,7 +77,7 @@ const updateListing = asyncHandler(async (req, res) => {
         data: {
             ...rest,
             ...(images && {
-            images: { deleteMany: {}, create: images.map((url) => ({ url })) },
+                images: { deleteMany: {}, create: images.map((url) => ({ url })) },
             })
         },
         include: { images: true, category: true }
@@ -92,7 +92,7 @@ const deleteListing = asyncHandler(async (req, res) => {
     if (existing.sellerId !== req.user.id && req.user.role !== 'ADMIN') {
         throw ApiError.forbidden('You do not own this listing');
     }
-  // Soft delete via status rather than hard delete which preserves history for any linked orders.
+    // Soft delete via status rather than hard delete which preserves history for any linked orders.
     await prisma.listing.update({ where: { id: req.params.id }, data: { status: 'INACTIVE' } });
     sendSuccess(res, { message: 'Listing deactivated' });
 });

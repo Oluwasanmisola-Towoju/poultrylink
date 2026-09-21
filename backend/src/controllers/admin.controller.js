@@ -46,14 +46,14 @@ const listDisputes = asyncHandler(async (req, res) => {
                 }
             }
         },
-        oderBy: { updatedAt: 'desc' }
+        orderBy: { updatedAt: 'desc' }
     });
     sendSuccess(res, { message: 'Disputed Orders', data: orders });
 });
 
 const resolveDispute = asyncHandler(async (req, res) => {
     const { resolution } = req.body; // "RELEASE_TO_SELLER" || "REFUND_BUYER"
-    const escrowService = require('../services/escrowService');
+    const escrowService = require('../services/escrow.service');
 
     if (resolution === 'RELEASE_TO_SELLER') {
         const escrow = await escrowService.releaseEscrow(req.params.orderId);
@@ -62,7 +62,7 @@ const resolveDispute = asyncHandler(async (req, res) => {
     }
     const escrow = await escrowService.refundEscrow(req.params.orderId, 'Admin resolved dispute in favor of buyer');
     await prisma.order.update({ where: { id: req.params.orderId }, data: { status: 'CANCELLED' } });
-    sendSuccess(res, { message: 'DIspute resolved: The funds has been refunded to Buyer', data: { escrow } });
+    sendSuccess(res, { message: 'Dispute resolved: The funds have been refunded to the buyer', data: { escrow } });
 });
 
 const auditLogs = asyncHandler(async (req, res) => {

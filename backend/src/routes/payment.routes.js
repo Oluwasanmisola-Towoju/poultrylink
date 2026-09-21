@@ -4,11 +4,11 @@ const { authenticate } = require('../middleware/auth.middleware');
 const validate = require('../middleware/validate.middleware');
 const { z } = require('zod');
 
-// NOTE: the Paystack webhook (/webhook/paystack) is NOT mounted here — it needs
-// the raw request body for signature verification, so it's wired directly in
-// app.js with express.raw() *before* the global express.json() middleware runs.
+// The server mounts express.raw() for this path before global express.json()
+// so Paystack signatures can be verified against the original request bytes.
 
 router.get('/verify/:reference', authenticate, controller.verifyPayment);
+router.post('/webhook/paystack', controller.paystackWebhook);
 
 // Dev/test only — see controller guard.
 router.post(

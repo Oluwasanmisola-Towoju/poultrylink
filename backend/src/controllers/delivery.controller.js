@@ -19,16 +19,16 @@ const updateStatus = asyncHandler(async (req, res) => {
         await prisma.order.update({ where: { id: req.params.orderId }, data: { status: 'DELIVERED' } });
     }
 
-    sendSuccess(res, { message: 'Delivery status updated', data: { delivery: updated} });
+    sendSuccess(res, { message: 'Delivery status updated', data: { delivery: updated } });
 });
 
 const myDeliveries = asyncHandler(async (req, res) => {
     const deliveries = await prisma.delivery.findMany({
         where: { transporterId: req.user.id },
-        incude: { order: { select: { id: true, status: true, deliveryAddress: true } } },
+        include: { order: { select: { id: true, status: true, deliveryAddress: true } } },
         orderBy: { createdAt: 'desc' }
     });
     sendSuccess(res, { message: 'Your deliveries', data: deliveries });
 });
 
-module.exports - { updateStatus, myDeliveries };
+module.exports = { updateStatus, myDeliveries };

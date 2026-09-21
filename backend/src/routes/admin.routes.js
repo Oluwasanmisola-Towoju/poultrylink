@@ -10,10 +10,10 @@ router.use(authenticate, requireRole('ADMIN'));
 router.get('/dashboard', controller.dashboard);
 router.get('/disputes', controller.listDisputes);
 router.post(
-    'disputes/:orderId/resolve',
+    '/disputes/:orderId/resolve',
     validate({
         params: z.object({
-            orderId: z.string().uuid() 
+            orderId: z.string().uuid()
         }),
         body: z.object({
             resolution: z.enum([

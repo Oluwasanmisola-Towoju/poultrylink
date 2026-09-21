@@ -27,7 +27,8 @@ async function registerUser({ email, phone, password, role, firstName, lastName,
 
     const { expiresAt } = await otpService.createAndSendOtp(user.id, 'REGISTRATION');
 
-    const { passwordHash: _omit, ...safeUser } = user;
+    const safeUser = { ...user };
+    delete safeUser.passwordHash;
     return { user: safeUser, otpExpiresAt: expiresAt };
 }
 
@@ -70,7 +71,8 @@ async function issueTokenPair(user) {
         }
     });
 
-    const { passwordHash, ...safeUser } = user;
+    const safeUser = { ...user };
+    delete safeUser.passwordHash;
     return { user: safeUser, accessToken, refreshToken }
 }
 
@@ -79,7 +81,7 @@ async function rotateRefreshToken(oldRefreshToken) {
     try {
         payload = verifyRefreshToken(oldRefreshToken);
     }
-    catch(err) {
+    catch (err) {
         throw ApiError.unauthorized('Invalid or expired refresh token');
     }
 
