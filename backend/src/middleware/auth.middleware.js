@@ -27,7 +27,8 @@ const authenticate = asyncHandler(async (req, res, next) => {
         throw ApiError.unauthorized('User no longer exists or is deactivated');
     }
 
-    const { passwordHash, ...safeUser } = user;
+    const safeUser = { ...user };
+    delete safeUser.passwordHash;
     req.user = safeUser;
     next();
 });
@@ -38,14 +39,15 @@ const attachUserIfPresent = asyncHandler(async (req, res, next) => {
     if (!header || !header.startsWith('Bearer ')) return next();
 
     try {
-    const payload = verifyAccessToken(header.split(' ')[1]);
-    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
-    if (user && user.isActive) {
-        const { passwordHash, ...safeUser } = user;
-        req.user = safeUser;
-    }
+        const payload = verifyAccessToken(header.split(' ')[1]);
+        const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+        if (user && user.isActive) {
+            const safeUser = { ...user };
+            delete safeUser.passwordHash;
+            req.user = safeUser;
+        }
     } catch (err) {
-    // Silently ignore so this middleware never blocks the request.
+        // Silently ignore so this middleware never blocks the request.
     }
     next();
 });
