@@ -15,11 +15,21 @@ const startConversation = asyncHandler(async (req, res) => {
 
   const [participantOneId, participantTwoId] = orderPair(req.user.id, recipientId);
 
-  const conversation = await prisma.conversation.upsert({
-    where: { participantOneId_participantTwoId_listingId: { participantOneId, participantTwoId, listingId: listingId ?? null } },
-    update: {},
-    create: { participantOneId, participantTwoId, listingId },
+  let conversation = await prisma.conversation.findFirst({
+    where: { participantOneId, participantTwoId, listingId: listingId ?? null },
   });
+  if (!conversation) {
+    try {
+      conversation = await prisma.conversation.create({
+        data: { participantOneId, participantTwoId, listingId: listingId ?? null },
+      });
+    } catch (error) {
+      if (error.code !== 'P2002') throw error;
+      conversation = await prisma.conversation.findFirst({
+        where: { participantOneId, participantTwoId, listingId: listingId ?? null },
+      });
+    }
+  }
 
   const message = await prisma.message.create({
     data: { conversationId: conversation.id, senderId: req.user.id, content },

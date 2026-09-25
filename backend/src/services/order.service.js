@@ -83,16 +83,23 @@ async function acceptOrder(orderId, sellerId) {
   assertParty(order, sellerId, 'seller');
   if (order.status !== 'PENDING_ACCEPTANCE') throw ApiError.badRequest(`Order cannot be accepted from status ${order.status}`);
 
-  // Decrement stock and mark accepted atomically.
-  await prisma.$transaction([
-    prisma.order.update({ where: { id: orderId }, data: { status: 'ACCEPTED' } }),
-    ...order.items.map((item) =>
-      prisma.listing.update({
-        where: { id: item.listingId },
+  await prisma.$transaction(async (tx) => {
+    const claimedOrder = await tx.order.updateMany({
+      where: { id: orderId, status: 'PENDING_ACCEPTANCE' },
+      data: { status: 'ACCEPTED' },
+    });
+    if (claimedOrder.count !== 1) throw ApiError.conflict('Order acceptance was already processed');
+
+    for (const item of order.items) {
+      const claimedStock = await tx.listing.updateMany({
+        where: { id: item.listingId, quantity: { gte: item.quantity } },
         data: { quantity: { decrement: item.quantity } },
-      })
-    ),
-  ]);
+      });
+      if (claimedStock.count !== 1) {
+        throw ApiError.conflict(`Insufficient stock for listing ${item.listingId}`);
+      }
+    }
+  });
 
   return getOrderOrThrow(orderId);
 }
@@ -109,12 +116,30 @@ async function cancelOrder(orderId, userId, reason) {
   assertParty(order, userId, 'buyer');
 
   if (['PENDING_ACCEPTANCE', 'ACCEPTED', 'AWAITING_PAYMENT'].includes(order.status)) {
-    return prisma.order.update({ where: { id: orderId }, data: { status: 'CANCELLED', notes: reason } });
+    return prisma.$transaction(async (tx) => {
+      if (['ACCEPTED', 'AWAITING_PAYMENT'].includes(order.status)) {
+        for (const item of order.items) {
+          await tx.listing.update({
+            where: { id: item.listingId },
+            data: { quantity: { increment: item.quantity } },
+          });
+        }
+      }
+      return tx.order.update({ where: { id: orderId }, data: { status: 'CANCELLED', notes: reason } });
+    });
   }
   if (order.status === 'PAID') {
     // Funds already in escrow so refund before cancelling.
     await escrowService.refundEscrow(orderId, reason || 'Buyer cancelled after payment');
-    return prisma.order.update({ where: { id: orderId }, data: { status: 'CANCELLED', notes: reason } });
+    return prisma.$transaction(async (tx) => {
+      for (const item of order.items) {
+        await tx.listing.update({
+          where: { id: item.listingId },
+          data: { quantity: { increment: item.quantity } },
+        });
+      }
+      return tx.order.update({ where: { id: orderId }, data: { status: 'CANCELLED', notes: reason } });
+    });
   }
   throw ApiError.badRequest(`Order cannot be cancelled from status ${order.status}`);
 }
@@ -149,8 +174,11 @@ async function markOutForDelivery(orderId, sellerId, transporterId) {
 async function confirmDelivery(orderId, buyerId) {
   const order = await getOrderOrThrow(orderId);
   assertParty(order, buyerId, 'buyer');
-  if (order.status !== 'OUT_FOR_DELIVERY' && order.status !== 'DELIVERED') {
+  if (!['OUT_FOR_DELIVERY', 'DELIVERED', 'CONFIRMED'].includes(order.status)) {
     throw ApiError.badRequest(`Order cannot be confirmed from status ${order.status}`);
+  }
+  if (!order.delivery || !['DELIVERED', 'CONFIRMED'].includes(order.delivery.status)) {
+    throw ApiError.badRequest('The delivery must be marked delivered before confirmation');
   }
 
   await prisma.$transaction([
