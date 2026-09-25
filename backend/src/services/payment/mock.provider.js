@@ -22,6 +22,16 @@ class MockProvider extends PaymentProviderInterface {
     return { status: tx.status, amount: tx.amount, reference, raw: tx };
   }
 
+  async refundPayment(reference, amount) {
+    const tx = mockTransactions.get(reference);
+    if (!tx || tx.status !== 'success' || tx.amount !== amount) {
+      return { status: 'failed', raw: tx || null };
+    }
+    tx.status = 'refunded';
+    mockTransactions.set(reference, tx);
+    return { status: 'success', raw: tx };
+  }
+
   // Test helper — flips a mock transaction to success/failed so the escrow
   // flow can be exercised end-to-end without a real payment gateway.
   simulateOutcome(reference, outcome) {

@@ -25,10 +25,10 @@ const searchListings = asyncHandler(async (req, res) => {
         { description: { contains: q, mode: 'insensitive' } },
       ],
     }),
-    ...((minPrice || maxPrice) && {
+    ...((minPrice !== undefined || maxPrice !== undefined) && {
       price: {
-        ...(minPrice && { gte: Number(minPrice) }),
-        ...(maxPrice && { lte: Number(maxPrice) }),
+        ...(minPrice !== undefined && { gte: Number(minPrice) }),
+        ...(maxPrice !== undefined && { lte: Number(maxPrice) }),
       },
     }),
     ...(minQuantity && { quantity: { gte: Number(minQuantity) } }),

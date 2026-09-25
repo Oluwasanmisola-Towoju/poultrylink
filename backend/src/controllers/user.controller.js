@@ -4,6 +4,17 @@ const { sendSuccess } = require('../utils/ApiResponse');
 const ApiError = require('../utils/ApiError');
 const { getPagination, buildMeta } = require('../utils/pagination');
 
+const safeUserSelect = {
+    id: true,
+    email: true,
+    phone: true,
+    role: true,
+    verificationStatus: true,
+    isActive: true,
+    createdAt: true,
+    profile: { select: { firstName: true, lastName: true, businessName: true } }
+};
+
 const updateMyProfile = asyncHandler(async (req, res) => {
     const profile = await prisma.profile.update({
         where: { userId: req.user.id },
@@ -80,16 +91,7 @@ const listUsers = asyncHandler(async (req, res) => {
     const [users, total] = await Promise.all([
         prisma.user.findMany({
             where,
-            select: {
-                id: true,
-                email: true,
-                phone: true,
-                role: true,
-                verificationStatus: true,
-                isActive: true,
-                createdAt: true,
-                profile: { select: { firstName: true, lastName: true, businessName: true } }
-            },
+            select: safeUserSelect,
             skip,
             take: limit,
             orderBy: { createdAt: 'desc' }
@@ -100,12 +102,13 @@ const listUsers = asyncHandler(async (req, res) => {
     sendSuccess(res, { message: 'Users', data: users, meta: buildMeta({ page, limit, total }) });
 });
 
-// Admin: verify/rejecy user's KYC
+// Admin: verify/reject user's KYC
 const setVerificationStatus = asyncHandler(async (req, res) => {
     const { status } = req.body; // VERIFIED || REJECTED
     const user = await prisma.user.update({
         where: { id: req.params.id },
-        data: { verificationStatus: status }
+        data: { verificationStatus: status },
+        select: safeUserSelect
     });
     await prisma.notification.create({
         data: {
@@ -123,7 +126,8 @@ const setActiveStatus = asyncHandler(async (req, res) => {
     const { isActive } = req.body;
     const user = await prisma.user.update({
         where: { id: req.params.id },
-        data: { isActive }
+        data: { isActive },
+        select: safeUserSelect
     });
     sendSuccess(res, { message: `User ${isActive ? 'activated' : 'deactivated'}`, data: { user } });
 });

@@ -58,6 +58,14 @@ class PaystackProvider extends PaymentProviderInterface {
     };
   }
 
+  async refundPayment(reference, amount) {
+    const json = await this.#request('/refund', {
+      method: 'POST',
+      body: JSON.stringify({ transaction: reference, amount: Math.round(amount * 100) }),
+    });
+    return { status: json.status ? 'success' : 'failed', raw: json.data };
+  }
+
   verifyWebhookSignature(rawBody, signatureHeader) {
     const hash = crypto.createHmac('sha512', this.secretKey).update(rawBody).digest('hex');
     return hash === signatureHeader;
