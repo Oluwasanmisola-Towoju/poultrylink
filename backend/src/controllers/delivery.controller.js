@@ -6,8 +6,11 @@ const ApiError = require('../utils/ApiError');
 const updateStatus = asyncHandler(async (req, res) => {
     const delivery = await prisma.delivery.findUnique({ where: { orderId: req.params.orderId } });
     if (!delivery) throw ApiError.notFound('Delivery not found for this order');
-    if (delivery.transporterId && delivery.transporterId !== req.user.id && req.user.role !== 'ADMIN') {
+    if (req.user.role !== 'ADMIN' && (!delivery.transporterId || delivery.transporterId !== req.user.id)) {
         throw ApiError.forbidden('You are not assigned to this delivery');
+    }
+    if (req.user.role !== 'ADMIN' && req.body.status === 'CONFIRMED') {
+        throw ApiError.forbidden('Only the buyer or an admin can confirm delivery');
     }
 
     const updated = await prisma.delivery.update({
