@@ -65,6 +65,16 @@ async function confirmPayment(reference, providerName = env.PAYMENT_PROVIDER) {
     return payment;
   }
 
+  const providerAmountInCents = Math.round(Number(result.amount) * 100);
+  const recordedAmountInCents = Math.round(Number(payment.amount) * 100);
+  if (!Number.isFinite(providerAmountInCents) || providerAmountInCents !== recordedAmountInCents) {
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: 'FAILED', rawResponse: result.raw },
+    });
+    throw ApiError.badRequest('Payment amount does not match the order total');
+  }
+
   const [updatedPayment] = await prisma.$transaction([
     prisma.payment.update({
       where: { id: payment.id },
@@ -88,6 +98,7 @@ async function confirmPayment(reference, providerName = env.PAYMENT_PROVIDER) {
 async function releaseEscrow(orderId) {
   const escrow = await prisma.escrowTransaction.findUnique({ where: { orderId } });
   if (!escrow) throw ApiError.notFound('Escrow transaction not found');
+  if (escrow.status === 'RELEASED') return escrow;
   if (escrow.status !== 'HELD') throw ApiError.badRequest(`Cannot release escrow in status ${escrow.status}`);
 
   return prisma.escrowTransaction.update({
@@ -103,14 +114,32 @@ async function releaseEscrow(orderId) {
 async function refundEscrow(orderId, reason) {
   const escrow = await prisma.escrowTransaction.findUnique({ where: { orderId } });
   if (!escrow) throw ApiError.notFound('Escrow transaction not found');
+  if (escrow.status === 'REFUNDED') return escrow;
   if (!['HELD', 'DISPUTED'].includes(escrow.status)) {
     throw ApiError.badRequest(`Cannot refund escrow in status ${escrow.status}`);
   }
 
-  return prisma.escrowTransaction.update({
-    where: { orderId },
-    data: { status: 'REFUNDED', refundedAt: new Date(), disputeReason: reason },
-  });
+  const payment = await prisma.payment.findUnique({ where: { orderId } });
+  if (!payment || payment.status !== 'SUCCESS') {
+    throw ApiError.badRequest('A successful payment is required before refunding escrow');
+  }
+  const provider = getProvider(payment.provider);
+  const result = await provider.refundPayment(payment.providerReference, Number(payment.amount));
+  if (result.status !== 'success') {
+    throw ApiError.badRequest('Payment provider could not process the refund');
+  }
+
+  const [updatedEscrow] = await prisma.$transaction([
+    prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: 'REFUNDED', rawResponse: result.raw },
+    }),
+    prisma.escrowTransaction.update({
+      where: { orderId },
+      data: { status: 'REFUNDED', refundedAt: new Date(), disputeReason: reason },
+    }),
+  ]);
+  return updatedEscrow;
 }
 
 async function markDisputed(orderId, reason) {
