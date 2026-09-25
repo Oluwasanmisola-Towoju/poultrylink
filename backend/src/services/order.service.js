@@ -117,6 +117,12 @@ async function cancelOrder(orderId, userId, reason) {
 
   if (['PENDING_ACCEPTANCE', 'ACCEPTED', 'AWAITING_PAYMENT'].includes(order.status)) {
     return prisma.$transaction(async (tx) => {
+      const claimedOrder = await tx.order.updateMany({
+        where: { id: orderId, status: order.status },
+        data: { status: 'CANCELLED', notes: reason },
+      });
+      if (claimedOrder.count !== 1) throw ApiError.conflict('Order cancellation was already processed');
+
       if (['ACCEPTED', 'AWAITING_PAYMENT'].includes(order.status)) {
         for (const item of order.items) {
           await tx.listing.update({
@@ -125,20 +131,40 @@ async function cancelOrder(orderId, userId, reason) {
           });
         }
       }
-      return tx.order.update({ where: { id: orderId }, data: { status: 'CANCELLED', notes: reason } });
+      return tx.order.findUnique({ where: { id: orderId } });
     });
   }
   if (order.status === 'PAID') {
-    // Funds already in escrow so refund before cancelling.
-    await escrowService.refundEscrow(orderId, reason || 'Buyer cancelled after payment');
+    const claim = await prisma.order.updateMany({
+      where: { id: orderId, status: 'PAID' },
+      data: { status: 'CANCELLING' },
+    });
+    if (claim.count !== 1) throw ApiError.conflict('Order cancellation was already processed');
+
+    try {
+      await escrowService.refundEscrow(orderId, reason || 'Buyer cancelled after payment');
+    } catch (error) {
+      await prisma.order.updateMany({
+        where: { id: orderId, status: 'CANCELLING' },
+        data: { status: 'PAID' },
+      });
+      throw error;
+    }
+
     return prisma.$transaction(async (tx) => {
+      const cancelledOrder = await tx.order.updateMany({
+        where: { id: orderId, status: 'CANCELLING' },
+        data: { status: 'CANCELLED', notes: reason },
+      });
+      if (cancelledOrder.count !== 1) throw ApiError.conflict('Order cancellation was already processed');
+
       for (const item of order.items) {
         await tx.listing.update({
           where: { id: item.listingId },
           data: { quantity: { increment: item.quantity } },
         });
       }
-      return tx.order.update({ where: { id: orderId }, data: { status: 'CANCELLED', notes: reason } });
+      return tx.order.findUnique({ where: { id: orderId } });
     });
   }
   throw ApiError.badRequest(`Order cannot be cancelled from status ${order.status}`);

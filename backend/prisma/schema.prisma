@@ -43,6 +43,7 @@ enum OrderStatus {
   COMPLETED
   CANCELLED
   DISPUTED
+  CANCELLING
 }
 
 enum PaymentStatus {
@@ -58,6 +59,7 @@ enum EscrowStatus {
   RELEASED
   REFUNDED
   DISPUTED
+  REFUNDING
 }
 
 enum DeliveryStatus {

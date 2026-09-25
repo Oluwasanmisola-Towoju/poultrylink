@@ -55,7 +55,7 @@ async function confirmPayment(reference, providerName = env.PAYMENT_PROVIDER) {
 
   const payment = await prisma.payment.findUnique({ where: { providerReference: reference } });
   if (!payment) throw ApiError.notFound('Payment record not found for this reference');
-  if (payment.status === 'SUCCESS') return payment; // idempotent — webhook may fire more than once
+  if (payment.status === 'SUCCESS' || payment.status === 'REFUNDED') return payment;
 
   if (result.status !== 'success') {
     await prisma.payment.update({
@@ -75,19 +75,27 @@ async function confirmPayment(reference, providerName = env.PAYMENT_PROVIDER) {
     throw ApiError.badRequest('Payment amount does not match the order total');
   }
 
-  const [updatedPayment] = await prisma.$transaction([
-    prisma.payment.update({
-      where: { id: payment.id },
+  return prisma.$transaction(async (tx) => {
+    const escrow = await tx.escrowTransaction.findUnique({ where: { orderId: payment.orderId } });
+    if (!escrow || escrow.status !== 'AWAITING_FUNDS') {
+      throw ApiError.conflict(`Cannot hold escrow in status ${escrow?.status || 'missing'}`);
+    }
+
+    const claimedPayment = await tx.payment.updateMany({
+      where: { id: payment.id, status: 'PENDING' },
       data: { status: 'SUCCESS', paidAt: new Date(), rawResponse: result.raw },
-    }),
-    prisma.escrowTransaction.update({
+    });
+    if (claimedPayment.count !== 1) {
+      throw ApiError.conflict('Payment confirmation was already processed');
+    }
+
+    await tx.escrowTransaction.update({
       where: { orderId: payment.orderId },
       data: { status: 'HELD', heldAt: new Date() },
-    }),
-    prisma.order.update({ where: { id: payment.orderId }, data: { status: 'PAID' } }),
-  ]);
-
-  return updatedPayment;
+    });
+    await tx.order.update({ where: { id: payment.orderId }, data: { status: 'PAID' } });
+    return tx.payment.findUnique({ where: { id: payment.id } });
+  });
 }
 
 /**
@@ -119,17 +127,44 @@ async function refundEscrow(orderId, reason) {
     throw ApiError.badRequest(`Cannot refund escrow in status ${escrow.status}`);
   }
 
+  const claim = await prisma.escrowTransaction.updateMany({
+    where: { orderId, status: escrow.status },
+    data: { status: 'REFUNDING' },
+  });
+  if (claim.count !== 1) {
+    const current = await prisma.escrowTransaction.findUnique({ where: { orderId } });
+    if (current?.status === 'REFUNDED') return current;
+    throw ApiError.conflict('A refund is already being processed for this escrow');
+  }
+
   const payment = await prisma.payment.findUnique({ where: { orderId } });
   if (!payment || payment.status !== 'SUCCESS') {
+    await prisma.escrowTransaction.updateMany({
+      where: { orderId, status: 'REFUNDING' },
+      data: { status: escrow.status },
+    });
     throw ApiError.badRequest('A successful payment is required before refunding escrow');
   }
   const provider = getProvider(payment.provider);
-  const result = await provider.refundPayment(payment.providerReference, Number(payment.amount));
+  let result;
+  try {
+    result = await provider.refundPayment(payment.providerReference, Number(payment.amount));
+  } catch (error) {
+    await prisma.escrowTransaction.updateMany({
+      where: { orderId, status: 'REFUNDING' },
+      data: { status: escrow.status },
+    });
+    throw error;
+  }
   if (result.status !== 'success') {
+    await prisma.escrowTransaction.updateMany({
+      where: { orderId, status: 'REFUNDING' },
+      data: { status: escrow.status },
+    });
     throw ApiError.badRequest('Payment provider could not process the refund');
   }
 
-  const [updatedEscrow] = await prisma.$transaction([
+  const [, updatedEscrow] = await prisma.$transaction([
     prisma.payment.update({
       where: { id: payment.id },
       data: { status: 'REFUNDED', rawResponse: result.raw },
