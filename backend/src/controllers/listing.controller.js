@@ -71,11 +71,18 @@ const updateListing = asyncHandler(async (req, res) => {
     if (!existing) throw ApiError.notFound('Listing not found');
     if (existing.sellerId !== req.user.id) throw ApiError.forbidden('You do not own this listing');
 
-    const { images, ...rest } = req.body;
+    const { images, farmId, ...rest } = req.body;
+    if (farmId !== undefined) {
+        const farm = await prisma.farm.findUnique({ where: { id: farmId } });
+        if (!farm || farm.ownerId !== req.user.id) {
+            throw ApiError.badRequest('farmId does not belong to you');
+        }
+    }
     const listing = await prisma.listing.update({
         where: { id: req.params.id },
         data: {
             ...rest,
+            ...(farmId !== undefined && { farmId }),
             ...(images && {
                 images: { deleteMany: {}, create: images.map((url) => ({ url })) },
             })
