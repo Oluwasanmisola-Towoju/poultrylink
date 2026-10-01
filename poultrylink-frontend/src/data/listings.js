@@ -1,0 +1,63 @@
+export const CATEGORIES = [
+  'Live birds',
+  'Eggs',
+  'Day-old chicks',
+  'Feed',
+  'Drugs',
+  'Equipment',
+  'Manure',
+]
+
+export const UNITS = ['bird', 'crate', 'bag', 'kg', 'tonne', 'pack', 'piece']
+
+// verification: 'verified' | 'unverified' (admins will set this later)
+export const MOCK_LISTINGS = [
+  {
+    id: 1,
+    product: 'Day-old broiler chicks',
+    category: 'Day-old chicks',
+    quantity: 500,
+    unit: 'bird',
+    price: 1.5,
+    minOrder: 50,
+    location: 'Lagos',
+    availableFrom: '2026-09-21',
+    description: 'Healthy day-old broiler chicks, ready for collection.',
+    images: [],
+    farm: 'Demo Hatchery',
+    seller: 'Demo Hatchery',
+    verification: 'verified',
+  },
+  {
+    id: 2,
+    product: 'Layers feed (25kg)',
+    category: 'Feed',
+    quantity: 120,
+    unit: 'bag',
+    price: 18,
+    minOrder: 5,
+    location: 'Ibadan',
+    availableFrom: '2026-09-21',
+    description: 'Layers feed in 25kg bags.',
+    images: [],
+    farm: '',
+    seller: 'Demo Feed Mill',
+    verification: 'verified',
+  },
+  {
+    id: 3,
+    product: 'Automatic poultry drinkers',
+    category: 'Equipment',
+    quantity: 60,
+    unit: 'piece',
+    price: 5,
+    minOrder: 10,
+    location: 'Abeokuta',
+    availableFrom: '2026-10-01',
+    description: 'Automatic drinkers for chicks and adult birds.',
+    images: [],
+    farm: '',
+    seller: 'Demo Supplies',
+    verification: 'unverified',
+  },
+]
