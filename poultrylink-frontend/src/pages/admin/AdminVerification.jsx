@@ -15,7 +15,7 @@ export default function AdminVerification() {
             <li key={u.id} className="order-row" style={{ textDecoration: 'none' }}>
               <div>
                 <strong>{u.name}</strong>
-                <span className="small muted">{ROLE_LABEL[u.role]} · {u.email}</span>
+                <span className="small muted">{ROLE_LABEL[u.role]} ï¿½ {u.email}</span>
                 {u.farm && <span className="small muted">{u.farm.name}, {u.farm.location}</span>}
               </div>
               <div className="actions" style={{ marginTop: 0 }}>
@@ -33,3 +33,5 @@ export default function AdminVerification() {
     </>
   )
 }
+
+//utf-8 encoding used
