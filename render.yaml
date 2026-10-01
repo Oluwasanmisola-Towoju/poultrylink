@@ -30,7 +30,7 @@ services:
       - key: OTP_PROVIDER
         value: console
       - key: PAYMENT_PROVIDER
-        value: paystack
+        value: mock
       - key: PAYSTACK_SECRET_KEY
         sync: false
       - key: PAYSTACK_PUBLIC_KEY
