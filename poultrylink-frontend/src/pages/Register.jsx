@@ -136,6 +136,10 @@ export default function Register() {
             Password
             <input type="password" value={form.password} onChange={set('password')} />
           </label>
+          <label>
+            Confirm password
+            <input type="password" value={form.confirmPassword} onChange={set('confirmPassword')} />
+          </label>
         </div>
       )}
 
