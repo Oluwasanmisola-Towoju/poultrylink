@@ -2,7 +2,10 @@ import { ROLE_LABEL, useAuth } from '../../context/auth'
 
 export default function AdminVerification() {
   const { users, setVerification } = useAuth()
-  const pending = users.filter((u) => u.verification !== 'verified')
+
+  // Only accounts that haven't been reviewed yet.
+  // Change to `u.verification !== 'verified'` if you want rejected ones listed too.
+  const pending = users.filter((u) => u.verification === 'pending')
 
   return (
     <>
@@ -15,8 +18,14 @@ export default function AdminVerification() {
             <li key={u.id} className="order-row" style={{ textDecoration: 'none' }}>
               <div>
                 <strong>{u.name}</strong>
-                <span className="small muted">{ROLE_LABEL[u.role]} · {u.email}</span>
-                {u.farm && <span className="small muted">{u.farm.name}, {u.farm.location}</span>}
+                <span className="small muted">
+                  {ROLE_LABEL[u.role] ?? u.role} &middot; {u.email}
+                </span>
+                {u.farm && (
+                  <span className="small muted">
+                    {u.farm.name}, {u.farm.location}
+                  </span>
+                )}
               </div>
               <div className="actions" style={{ marginTop: 0 }}>
                 <button className="btn" onClick={() => setVerification(u.id, 'verified')}>
