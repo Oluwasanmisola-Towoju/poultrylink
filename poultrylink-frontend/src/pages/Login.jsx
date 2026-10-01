@@ -19,11 +19,11 @@ export default function Login() {
     navigate('/verification')
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
 
-    const result = login(email.trim(), password)
+    const result = await login(email.trim(), password)
     if (!result.ok) {
       return setError(result.error || 'Invalid credentials')
     }

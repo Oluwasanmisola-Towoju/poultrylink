@@ -1,33 +1,26 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { PricesContext } from './prices'
-import { MARKET_PRICES } from '../data/marketPrices'
-import { todayISO } from '../utils/format'
+import { api } from '../lib/api'
 
-// In-memory for now: real prices will come from the database later
-export default function PricesProvider({ children }) {
-  const [prices, setPrices] = useState(MARKET_PRICES)
-
-  // Adds a new data point for a product in a location (creates the location if new)
-  const setPrice = (productId, location, price) => {
-    const point = { date: todayISO(), price }
-    setPrices((prev) =>
-      prev.map((p) =>
-        p.id === productId
-          ? {
-              ...p,
-              locations: {
-                ...p.locations,
-                [location]: [...(p.locations[location] ?? []), point],
-              },
-            }
-          : p,
-      ),
-    )
+function groupPrices(rows) {
+  const map = new Map()
+  for (const row of rows || []) {
+    const key = row.categoryId
+    if (!map.has(key)) map.set(key, { id: key, product: row.category?.name || 'Product', locations: {} })
+    const item = map.get(key); const loc = row.state || 'National'
+    if (!item.locations[loc]) item.locations[loc] = []
+    item.locations[loc].push({ date: row.recordedAt?.slice(0, 10), price: Number(row.price) })
   }
+  return [...map.values()]
+}
 
-  return (
-    <PricesContext.Provider value={{ prices, setPrice }}>
-      {children}
-    </PricesContext.Provider>
-  )
+export default function PricesProvider({ children }) {
+  const [prices, setPrices] = useState([])
+  const refresh = useCallback(async () => { setPrices(groupPrices(await api.get('/market-prices?limit=100'))) }, [])
+  useEffect(() => { refresh().catch(console.error) }, [refresh])
+  const setPrice = async (categoryId, state, price) => {
+    await api.post('/market-prices', { categoryId, state, price: Number(price), unit: 'unit', source: 'ADMIN' })
+    await refresh()
+  }
+  return <PricesContext.Provider value={{ prices, setPrice, refresh }}>{children}</PricesContext.Provider>
 }

@@ -40,7 +40,7 @@ export default function Register() {
       if (!form.name.trim()) return 'Enter your full name.'
       if (!/^\S+@\S+\.\S+$/.test(form.email)) return 'Enter a valid email address.'
       if (!form.phone.trim()) return 'Enter your phone number.'
-      if (form.password.length < 6) return 'Password must be at least 6 characters.'
+      if (form.password.length < 8 || !/[A-Z]/.test(form.password) || !/[a-z]/.test(form.password) || !/[0-9]/.test(form.password)) return 'Password must be at least 8 characters and include uppercase, lowercase and a number.'
     }
     if (step === 2) {
       if (form.role === ROLES.FARMER) {
@@ -69,8 +69,8 @@ export default function Register() {
     setStep((prev) => Math.max(prev - 1, 0))
   }
 
-  const handleSubmit = () => {
-    const result = register({
+  const handleSubmit = async () => {
+    const result = await register({
       name: form.name.trim(),
       email: form.email.trim(),
       phone: form.phone.trim(),

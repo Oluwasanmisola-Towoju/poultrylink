@@ -8,9 +8,9 @@ export default function Otp() {
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    const result = verifyOtp(code.trim())
+    const result = await verifyOtp(code.trim())
     if (!result.ok) return setError(result.error)
     navigate('/verification')
   }
@@ -19,7 +19,7 @@ export default function Otp() {
     <div className="auth-page">
       <h1>Verify your phone</h1>
       <p className="muted">
-        Enter the 4-digit code we sent you. For this demo, the code is always <strong>1234</strong>.
+        Enter the 6-digit code we sent you. Check the configured OTP delivery channel for your verification code.
       </p>
       {error && <p className="error" style={{ marginBottom: '.75rem' }}>{error}</p>}
       <form onSubmit={handleSubmit} className="stack">
@@ -29,7 +29,7 @@ export default function Otp() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             inputMode="numeric"
-            maxLength={4}
+            maxLength={6}
             aria-invalid={!!error}
           />
         </label>

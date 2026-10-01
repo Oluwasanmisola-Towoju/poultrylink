@@ -61,13 +61,13 @@ export default function NewListing() {
     return errs
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const errs = validate()
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
 
-    const id = addListing({
+    const id = await addListing({
       product: form.product.trim(),
       category: form.category,
       quantity: Number(form.quantity),

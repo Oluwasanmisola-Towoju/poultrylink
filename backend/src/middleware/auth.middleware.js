@@ -22,7 +22,7 @@ const authenticate = asyncHandler(async (req, res, next) => {
         );
     }
 
-    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    const user = await prisma.user.findUnique({ where: { id: payload.sub }, include: { profile: true } });
     if (!user || !user.isActive) {
         throw ApiError.unauthorized('User no longer exists or is deactivated');
     }
@@ -40,7 +40,7 @@ const attachUserIfPresent = asyncHandler(async (req, res, next) => {
 
     try {
         const payload = verifyAccessToken(header.split(' ')[1]);
-        const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+        const user = await prisma.user.findUnique({ where: { id: payload.sub }, include: { profile: true } });
         if (user && user.isActive) {
             const safeUser = { ...user };
             delete safeUser.passwordHash;

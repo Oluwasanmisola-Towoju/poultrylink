@@ -41,13 +41,14 @@
   },
   "scripts": {
     "dev": "nodemon backend/server.js",
-    "start": "node backend/server.js",
+    "start": "npm run prisma:deploy && npm run seed && node backend/server.js",
     "prisma:generate": "prisma generate --config backend/prisma7.config.ts",
     "prisma:migrate": "prisma migrate dev --config backend/prisma7.config.ts",
     "prisma:deploy": "prisma migrate deploy --config backend/prisma7.config.ts",
     "prisma:studio": "prisma studio --config backend/prisma7.config.ts",
     "seed": "node database/seeds/seed.js",
-    "lint": "eslint backend/src"
+    "lint": "eslint backend/src",
+    "build": "npm --prefix poultrylink-frontend ci && npm --prefix poultrylink-frontend run build && npm run prisma:generate"
   },
   "keywords": [],
   "author": "",

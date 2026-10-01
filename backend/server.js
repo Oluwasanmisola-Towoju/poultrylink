@@ -5,6 +5,8 @@ const compression = require('compression');
 const hpp = require('hpp');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
+const path = require('path');
+const fs = require('fs');
 
 const env = require('./src/config/env');
 const routes = require('./src/routes');
@@ -37,6 +39,18 @@ app.get('/api/check', (req, res) => res.json({
     uptime: process.uptime()
 }));
 app.use('/api/v1', apiLimiter, routes);
+
+// In production Render runs PoultryLink as one service. Express serves the Vite build
+// while API traffic remains under /api/v1. BrowserRouter routes fall back to index.html.
+const frontendDist = path.resolve(__dirname, '../poultrylink-frontend/dist');
+if (env.NODE_ENV === 'production' && fs.existsSync(frontendDist)) {
+    app.use(express.static(frontendDist, { maxAge: '1d', index: false }));
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api/')) return next();
+        return res.sendFile(path.join(frontendDist, 'index.html'));
+    });
+}
+
 app.use(notFoundHandler);
 app.use(errorHandler);
 

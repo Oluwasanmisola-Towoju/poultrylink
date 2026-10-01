@@ -38,14 +38,15 @@ async function verifyRegistrationOtp(userId, code) {
 
     const user = await prisma.user.update({
         where: { id: userId },
-        data: { isEmailVerified: true, verificationStatus: 'PENDING' }  // kyc needs to be reviewed by admin
+        data: { isEmailVerified: true, verificationStatus: 'PENDING' },
+        include: { profile: true }
     });
 
     return issueTokenPair(user);
 }
 
 async function loginUser({ email, password }) {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email }, include: { profile: true } });
     if (!user) throw ApiError.unauthorized('Invalid email or password');
 
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
@@ -93,7 +94,7 @@ async function rotateRefreshToken(oldRefreshToken) {
         throw ApiError.unauthorized('Refresh token is no longer valid');
     }
 
-    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    const user = await prisma.user.findUnique({ where: { id: payload.sub }, include: { profile: true } });
     if (!user || !user.isActive) throw ApiError.unauthorized('User no longer active');
 
     // revoke the used token and issue a fresh pair

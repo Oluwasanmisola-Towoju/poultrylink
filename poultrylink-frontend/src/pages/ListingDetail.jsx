@@ -17,7 +17,7 @@ function OrderForm({ listing, buyerName }) {
   const qty = Number(quantity)
   const total = qty > 0 ? qty * listing.price : 0
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const errs = {}
     if (!Number.isInteger(qty) || qty < listing.minOrder || qty > listing.quantity) {
@@ -27,7 +27,7 @@ function OrderForm({ listing, buyerName }) {
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
 
-    const id = placeOrder({
+    const id = await placeOrder({
       listing,
       quantity: qty,
       buyer: buyerName,
