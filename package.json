@@ -9,7 +9,7 @@
     "url": "git+https://github.com/samuelvictor2019/poultrylink.git"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "22.x"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
@@ -48,7 +48,7 @@
     "prisma:studio": "prisma studio --config backend/prisma7.config.ts",
     "seed": "node database/seeds/seed.js",
     "lint": "eslint backend/src",
-    "build": "npm --prefix poultrylink-frontend ci && npm --prefix poultrylink-frontend run build && npm run prisma:generate"
+    "build": "npm --prefix poultrylink-frontend ci --include=dev && npm --prefix poultrylink-frontend run build && npm run prisma:generate"
   },
   "keywords": [],
   "author": "",
