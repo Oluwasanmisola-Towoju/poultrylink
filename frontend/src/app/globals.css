@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 50 75% 85%;      /* #F5EBBA cream */
+    --foreground: 0 0% 15%;        /* #252525 charcoal */
+
+    --card: 51 45% 94%;            /* #F7F5EA paper */
+    --card-foreground: 0 0% 15%;
+
+    --primary: 0 0% 15%;           /* charcoal buttons, matches brand_rules */
+    --primary-foreground: 50 75% 85%;
+
+    --secondary: 50 75% 85%;
+    --secondary-foreground: 0 0% 15%;
+
+    --muted: 51 29% 78%;           /* #D8D3B8 */
+    --muted-foreground: 0 0% 44%;  /* #6F6F6F */
+
+    --destructive: 11 61% 44%;     /* muted terracotta, not a bright red */
+    --destructive-foreground: 51 45% 94%;
+
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 0 0% 15%;
+
+    --egg: 0 0% 56%;               /* #909090 */
+
+    --radius: 0.9rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground font-body;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(37,37,37,0.02) 0px, rgba(37,37,37,0.02) 1px, transparent 1px, transparent 3px),
+      radial-gradient(circle at 1px 1px, rgba(37,37,37,0.045) 1px, transparent 0);
+    background-size: auto, 4px 4px;
+  }
+}
+
+.link-dash {
+  background-image: repeating-linear-gradient(90deg, hsl(var(--foreground)) 0 10px, transparent 10px 18px);
+  height: 2px;
+}
+
+.pixel-shadow {
+  box-shadow: 0 2px 0 hsl(var(--foreground));
+}
