@@ -12,6 +12,7 @@ import { apiFetch, ApiClientError } from "@/lib/api/client";
 import { loginSchema, type LoginValues } from "@/lib/validation/auth";
 import { useAuthStore } from "@/store/auth-store";
 import type { User } from "@/types";
+import glassesChicken from "../../../images/chicken-on-glasses.png";
 
 function LoginForm() {
     const router = useRouter();
@@ -41,7 +42,12 @@ function LoginForm() {
     }
 
     return (
-        <AuthShell title="Welcome back" description="Log in to your PoultryLink account.">
+        <AuthShell
+             title="Welcome back"
+            description="Log in to your PoultryLink account."
+            image={glassesChicken}
+            imageAlt="Pixel-art chicken wearing sunglasses with a cigar"
+        >      
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <FormField label="Email" type="email" {...register("email")} error={errors.email?.message} />
                 <FormField label="Password" type="password" {...register("password")} error={errors.password?.message} />

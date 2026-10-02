@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { apiFetch, ApiClientError } from "@/lib/api/client";
 import { registerSchema, ROLES_OPEN_AT_REGISTRATION, type RegisterValues } from "@/lib/validation/auth";
 import type { User } from "@/types";
+import bandanaChicken from "../../../images/chicken-on-bandana.jpg";
 
 const ROLE_LABELS: Record<(typeof ROLES_OPEN_AT_REGISTRATION)[number], string> = {
     FARMER: "Farmer",
@@ -57,7 +58,12 @@ export default function RegisterPage() {
     }
 
     return (
-        <AuthShell title="Create your account" description="Join the flock — it takes about a minute.">
+        <AuthShell
+            title="Create your account"
+            description="Join the flock — it takes about a minute."
+            image={bandanaChicken}
+            imageAlt="Pixel-art chicken wearing a bandana and gold chain"
+          >
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                     <FormField label="First name" {...register("firstName")} error={errors.firstName?.message} />

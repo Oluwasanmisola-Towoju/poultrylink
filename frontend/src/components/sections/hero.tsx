@@ -1,27 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image, { type StaticImageData } from "next/image";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Chick, type ChickPhase } from "@/components/brand/chick";
+import headphoneChicken from "../../../images/chicken-on-headphone.jpg";
+import mustacheChicken from "../../../images/chicken-on-mustache.jpg";
+import bandanaChicken from "../../../images/chicken-on-bandana.jpg";
+import glassesChicken from "../../../images/chicken-on-glasses.png";
 
-const FLOCK: { delay: number; scale: number; flip?: boolean }[] = [
-  { delay: 0, scale: 0.9 },
-  { delay: 0.15, scale: 1.15 },
-  { delay: 0.3, scale: 0.85, flip: true },
-  { delay: 0.1, scale: 1, flip: true },
-  { delay: 0.25, scale: 0.95 },
+const CREW: { src: StaticImageData; alt: string }[] = [
+  { src: headphoneChicken, alt: "Pixel-art chicken wearing a headset" },
+  { src: bandanaChicken, alt: "Pixel-art chicken wearing a bandana and gold chain" },
+  { src: mustacheChicken, alt: "Pixel-art chicken wearing a beret, moustache and sunglasses" },
+  { src: glassesChicken, alt: "Pixel-art chicken wearing sunglasses with a cigar" },
 ];
 
 export function Hero() {
-  const [phase, setPhase] = useState<ChickPhase>("peck");
-
-  useEffect(() => {
-    const t = setTimeout(() => setPhase("look"), 3200);
-    return () => clearTimeout(t);
-  }, []);
-
   return (
     <section id="top" className="pt-16 pb-10 px-6 md:px-10 lg:px-16 max-w-7xl mx-auto">
       <div className="text-center max-w-3xl mx-auto">
@@ -40,8 +35,8 @@ export function Hero() {
 
         <motion.div
           initial={{ opacity: 0, y: 10 }}
-          animate={phase === "look" ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
           className="mt-7 flex flex-wrap items-center justify-center gap-3"
         >
           <Button asChild size="lg">
@@ -63,9 +58,17 @@ export function Hero() {
         </p>
       </div>
 
-      <div className="flex justify-center items-end gap-4 md:gap-8 mt-12 h-24">
-        {FLOCK.map((c, i) => (
-          <Chick key={i} phase={phase} delay={c.delay} scale={c.scale} flip={c.flip} />
+      <div className="flex justify-center items-end gap-4 md:gap-6 mt-12">
+        {CREW.map((c, i) => (
+          <motion.div
+            key={c.alt}
+            initial={{ opacity: 0, y: 24, scale: 0.85 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.5, delay: i * 0.12, ease: "backOut" }}
+            className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-2 border-foreground pixel-shadow shrink-0"
+          >
+            <Image src={c.src} alt={c.alt} fill placeholder="blur" sizes="112px" className="object-cover" />
+          </motion.div>
         ))}
       </div>
       <div className="link-dash w-24 mx-auto mt-6 opacity-40" />
