@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { expressFetch } from "@/lib/api/server";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ListingPlaceholderThumb } from "@/components/marketplace/listing-placeholder-thumb";
 import { formatNaira, formatQuantity } from "@/lib/format";

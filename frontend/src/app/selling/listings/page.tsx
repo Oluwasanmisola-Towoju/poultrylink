@@ -219,7 +219,7 @@ function CreateListingForm() {
               placeholder="https://…, https://…"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              There's no upload endpoint on the backend yet — paste links to images hosted elsewhere for now.
+              There&apos;s no upload endpoint on the backend yet — paste links to images hosted elsewhere for now.
             </p>
           </div>
 
