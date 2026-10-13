@@ -60,6 +60,23 @@ export const useRejectOrder = () => useOrderAction("reject");
 export const useDispatchOrder = () => useOrderAction("dispatch");
 export const useConfirmDelivery = () => useOrderAction("confirm-delivery");
 
+export interface AvailableTransporter {
+  id: string;
+  name: string;
+  phone: string | null;
+  state: string | null;
+  lga: string | null;
+  proximity: string;
+}
+
+export function useAvailableTransporters(orderId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["orders", orderId, "available-transporters"],
+    queryFn: () => apiFetch<{ transporters: AvailableTransporter[] }>(`/orders/${orderId}/available-transporters`),
+    enabled: Boolean(orderId) && enabled,
+  });
+}
+
 export function useCancelOrder() {
   const queryClient = useQueryClient();
   return useMutation({

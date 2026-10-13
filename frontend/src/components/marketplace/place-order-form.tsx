@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/store/auth-store";
 import { useCreateOrder } from "@/hooks/use-orders";
 import { ApiClientError } from "@/lib/api/client";
-import { formatNaira } from "@/lib/format";
+import { formatNaira, formatQuantity } from "@/lib/format";
 import type { Listing } from "@/types";
 
 export function PlaceOrderForm({ listing }: { listing: Listing }) {
@@ -19,6 +19,8 @@ export function PlaceOrderForm({ listing }: { listing: Listing }) {
 
   const [quantity, setQuantity] = useState(Number(listing.minOrderQuantity) || 1);
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryState, setDeliveryState] = useState("");
+  const [deliveryLga, setDeliveryLga] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   if (status !== "authenticated") {
@@ -29,7 +31,7 @@ export function PlaceOrderForm({ listing }: { listing: Listing }) {
     );
   }
 
-  if (user?.role !== "BUYER") {
+  if (!user || String(user.role).toUpperCase() !== "BUYER") {
     return (
       <p className="text-sm text-muted-foreground text-center mt-6 border border-foreground/10 rounded-xl py-3">
         Only accounts registered as a Buyer can place orders.
@@ -46,6 +48,8 @@ export function PlaceOrderForm({ listing }: { listing: Listing }) {
   }
 
   const total = quantity * Number(listing.price);
+  const minimumOrder = Number(listing.minOrderQuantity) || 1;
+  const belowMinimum = quantity < minimumOrder;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,7 +65,8 @@ export function PlaceOrderForm({ listing }: { listing: Listing }) {
       const order = await createOrder.mutateAsync({
         items: [{ listingId: listing.id, quantity }],
         deliveryAddress,
-        deliveryState: listing.state ?? undefined,
+        deliveryState: deliveryState.trim() || undefined,
+        deliveryLga: deliveryLga.trim() || undefined,
       });
       router.push(`/orders/${order.id}`);
     } catch (err) {
@@ -73,14 +78,22 @@ export function PlaceOrderForm({ listing }: { listing: Listing }) {
     <form onSubmit={handleSubmit} className="mt-6 space-y-3 border border-foreground/10 rounded-2xl p-4">
       <div>
         <Label htmlFor="quantity">Quantity ({listing.unit})</Label>
+        <p className="text-xs font-semibold text-muted-foreground mb-1">
+          Minimum order: {formatQuantity(listing.minOrderQuantity, listing.unit)}
+        </p>
         <Input
           id="quantity"
           type="number"
-          min={Number(listing.minOrderQuantity) || 1}
+          min={minimumOrder}
           max={Number(listing.quantity)}
           value={quantity}
           onChange={(e) => setQuantity(Number(e.target.value))}
         />
+        {belowMinimum && (
+          <p className="text-xs font-semibold text-destructive mt-1">
+            Increase the quantity to at least {formatQuantity(listing.minOrderQuantity, listing.unit)} to place this order.
+          </p>
+        )}
       </div>
       <div>
         <Label htmlFor="deliveryAddress">Delivery address</Label>
@@ -91,12 +104,32 @@ export function PlaceOrderForm({ listing }: { listing: Listing }) {
           placeholder="Where should this be delivered?"
         />
       </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="deliveryState">Delivery state</Label>
+          <Input
+            id="deliveryState"
+            value={deliveryState}
+            onChange={(e) => setDeliveryState(e.target.value)}
+            placeholder="e.g. Oyo"
+          />
+        </div>
+        <div>
+          <Label htmlFor="deliveryLga">Delivery LGA</Label>
+          <Input
+            id="deliveryLga"
+            value={deliveryLga}
+            onChange={(e) => setDeliveryLga(e.target.value)}
+            placeholder="e.g. Ibadan North"
+          />
+        </div>
+      </div>
 
       <p className="font-head font-extrabold text-lg">Total: {formatNaira(total)}</p>
 
       {error && <p className="text-sm font-semibold text-destructive">{error}</p>}
 
-      <Button type="submit" size="lg" className="w-full" disabled={createOrder.isPending}>
+      <Button type="submit" size="lg" className="w-full" disabled={createOrder.isPending || belowMinimum}>
         {createOrder.isPending ? "Placing order…" : "Place an order"}
       </Button>
     </form>
