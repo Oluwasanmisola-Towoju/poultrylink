@@ -68,7 +68,7 @@ const forgotPassword = {
 
 const resetPassword = {
     body: z.object({
-        userId: z.string().uuid(),
+        email: z.string().email().toLowerCase(),
         code: z.string().length(6),
         newPassword: passwordSchema,
     }),
