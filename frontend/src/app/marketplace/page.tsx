@@ -8,12 +8,6 @@ import { ListingCard } from "@/components/marketplace/listing-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const SORT_OPTIONS: { value: NonNullable<ListingFilters["sort"]>; label: string }[] = [
-  { value: "newest", label: "Newest" },
-  { value: "price_asc", label: "Price: low to high" },
-  { value: "price_desc", label: "Price: high to low" },
-];
-
 function MarketplaceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -24,14 +18,16 @@ function MarketplaceContent() {
 
   const [q, setQ] = useState(searchParams.get("q") ?? "");
   const [state, setState] = useState(searchParams.get("state") ?? "");
-  const sort = (searchParams.get("sort") as ListingFilters["sort"]) ?? "newest";
+  const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") ?? "");
+  const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") ?? "");
   const page = Number(searchParams.get("page") ?? "1");
 
   const filters: ListingFilters = {
     q: searchParams.get("q") ?? undefined,
     categoryId: activeCategory?.id,
     state: searchParams.get("state") ?? undefined,
-    sort,
+    minPrice: searchParams.get("minPrice") ? Number(searchParams.get("minPrice")) : undefined,
+    maxPrice: searchParams.get("maxPrice") ? Number(searchParams.get("maxPrice")) : undefined,
     page,
   };
 
@@ -49,6 +45,8 @@ function MarketplaceContent() {
 
   useEffect(() => setQ(searchParams.get("q") ?? ""), [searchParams]);
   useEffect(() => setState(searchParams.get("state") ?? ""), [searchParams]);
+  useEffect(() => setMinPrice(searchParams.get("minPrice") ?? ""), [searchParams]);
+  useEffect(() => setMaxPrice(searchParams.get("maxPrice") ?? ""), [searchParams]);
 
   return (
     <main className="px-6 md:px-10 lg:px-16 py-10 max-w-7xl mx-auto">
@@ -82,27 +80,41 @@ function MarketplaceContent() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          updateParams({ q, state });
+          if (minPrice && maxPrice && Number(minPrice) > Number(maxPrice)) return;
+          updateParams({ q, state, minPrice, maxPrice });
         }}
         className="flex flex-wrap gap-3 mt-6"
       >
         <Input placeholder="Search listings…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" />
         <Input placeholder="State (e.g. Oyo)" value={state} onChange={(e) => setState(e.target.value)} className="max-w-[10rem]" />
-        <select
-          value={sort}
-          onChange={(e) => updateParams({ sort: e.target.value })}
-          className="h-11 rounded-xl border-2 border-foreground/15 bg-background px-4 text-sm"
-        >
-          {SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            min={0}
+            placeholder="Min price (₦)"
+            aria-label="Minimum price"
+            value={minPrice}
+            onChange={(e) => setMinPrice(e.target.value)}
+            className="w-36"
+          />
+          <span className="text-sm text-muted-foreground">to</span>
+          <Input
+            type="number"
+            min={0}
+            placeholder="Max price (₦)"
+            aria-label="Maximum price"
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+            className="w-36"
+          />
+        </div>
         <Button type="submit" variant="outline">
           Apply
         </Button>
       </form>
+      {minPrice && maxPrice && Number(minPrice) > Number(maxPrice) && (
+        <p className="text-sm font-semibold text-destructive mt-2">Minimum price must not exceed maximum price.</p>
+      )}
 
       <div className="mt-8">
         {isLoading ? (
