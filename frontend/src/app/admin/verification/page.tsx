@@ -16,7 +16,7 @@ export default function AdminVerificationPage() {
   const [role, setRole] = useState<UserRole | "">("");
   // New accounts start UNVERIFIED (there's no flow that moves them to
   // PENDING yet), so that's the useful default to land on.
-  const [status, setStatus] = useState<VerificationStatus>("UNVERIFIED");
+  const [status, setStatus] = useState<VerificationStatus>("PENDING"); // was "UNVERIFIED"
   const [error, setError] = useState<string | null>(null);
   const [actingOn, setActingOn] = useState<string | null>(null);
 

@@ -9,10 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useCategories } from "@/hooks/use-categories";
 import { useMyFarms, useCreateFarm } from "@/hooks/use-farms";
-import { useMyListings, useCreateListing, useDeleteListing } from "@/hooks/use-my-listings";
+import { useMyListings, useCreateListing, useUpdateListing, useDeleteListing } from "@/hooks/use-my-listings";
 import { ListingPlaceholderThumb } from "@/components/marketplace/listing-placeholder-thumb";
 import { ApiClientError } from "@/lib/api/client";
 import { formatNaira, formatQuantity } from "@/lib/format";
+import type { Listing } from "@/types";
 
 function NewFarmInline({ onCreated }: { onCreated: (farmId: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -82,6 +83,9 @@ function CreateListingForm() {
 
     if (!categoryId) return setError("Pick a category");
     if (!productName || !quantity || !unit || !price) return setError("Fill in product, quantity, unit and price");
+    if (minOrderQuantity && Number(minOrderQuantity) > Number(quantity)) {
+      return setError("Minimum order cannot exceed the available quantity");
+    }
 
     try {
       await createListing.mutateAsync({
@@ -237,7 +241,43 @@ function CreateListingForm() {
 
 export default function MyListingsPage() {
   const { data, isLoading } = useMyListings();
+  const updateListing = useUpdateListing();
   const deleteListing = useDeleteListing();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState({ quantity: "", price: "", minOrderQuantity: "" });
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function startEditing(listing: Listing) {
+    setEditingId(listing.id);
+    setEditValues({
+      quantity: String(listing.quantity),
+      price: String(listing.price),
+      minOrderQuantity: String(listing.minOrderQuantity),
+    });
+    setEditError(null);
+  }
+
+  async function saveEditing() {
+    const quantity = Number(editValues.quantity);
+    const price = Number(editValues.price);
+    const minOrderQuantity = Number(editValues.minOrderQuantity);
+    if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(price) || price <= 0) {
+      setEditError("Quantity and price must be greater than zero.");
+      return;
+    }
+    if (!Number.isFinite(minOrderQuantity) || minOrderQuantity <= 0 || minOrderQuantity > quantity) {
+      setEditError("Minimum purchase must be greater than zero and cannot exceed quantity.");
+      return;
+    }
+
+    setEditError(null);
+    try {
+      await updateListing.mutateAsync({ id: editingId!, quantity, price, minOrderQuantity });
+      setEditingId(null);
+    } catch (err) {
+      setEditError(err instanceof ApiClientError ? err.message : "Couldn't update that listing.");
+    }
+  }
 
   return (
     <main className="px-6 md:px-10 lg:px-16 py-10 max-w-5xl mx-auto">
@@ -273,15 +313,58 @@ export default function MyListingsPage() {
                         <Badge variant={listing.status === "ACTIVE" ? "success" : "outline"} className="mt-1">
                           {listing.status}
                         </Badge>
+                        {editingId === listing.id && (
+                          <div className="mt-3 space-y-2">
+                            <div className="grid grid-cols-3 gap-2">
+                              <Input
+                                aria-label="Available quantity"
+                                type="number"
+                                min={1}
+                                value={editValues.quantity}
+                                onChange={(e) => setEditValues((current) => ({ ...current, quantity: e.target.value }))}
+                              />
+                              <Input
+                                aria-label="Price per unit"
+                                type="number"
+                                min={1}
+                                value={editValues.price}
+                                onChange={(e) => setEditValues((current) => ({ ...current, price: e.target.value }))}
+                              />
+                              <Input
+                                aria-label="Minimum purchase"
+                                type="number"
+                                min={1}
+                                value={editValues.minOrderQuantity}
+                                onChange={(e) =>
+                                  setEditValues((current) => ({ ...current, minOrderQuantity: e.target.value }))
+                                }
+                              />
+                            </div>
+                            {editError && <p className="text-xs font-semibold text-destructive">{editError}</p>}
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={saveEditing} disabled={updateListing.isPending}>
+                                {updateListing.isPending ? "Saving…" : "Save"}
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={deleteListing.isPending}
-                        onClick={() => deleteListing.mutate(listing.id)}
-                      >
-                        Remove
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <Button variant="outline" size="sm" onClick={() => startEditing(listing)}>
+                          {editingId === listing.id ? "Editing" : "Edit"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={deleteListing.isPending}
+                          onClick={() => deleteListing.mutate(listing.id)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 );
