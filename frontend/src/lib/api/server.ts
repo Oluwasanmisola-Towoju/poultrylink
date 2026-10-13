@@ -29,7 +29,6 @@ async function rawExpressFetch<T>(
   return { status: res.status, body };
 }
 
-/** Calls Express directly. Only ever used from route handlers / server components. */
 export async function expressFetch<T>(
   path: string,
   init: RequestInit & { accessToken?: string } = {}
@@ -71,11 +70,6 @@ export function issueSession<U>(data: { accessToken: string; refreshToken: strin
   return { user: data.user };
 }
 
-/**
- * Calls Express with the current access token; on a real 401 (not just any
- * error) it tries one silent refresh and retries once. Checks the actual
- * HTTP status rather than sniffing the error message text.
- */
 export async function authedExpressFetch<T>(
   path: string,
   init: RequestInit = {}
@@ -84,7 +78,7 @@ export async function authedExpressFetch<T>(
   const { status, body: initialBody } = await rawExpressFetch<T>(path, { ...init, accessToken });
   let body = initialBody;
 
-  if (status !== 401 || !accessToken) return body;
+  if (status !== 401) return body;
 
   const refreshToken = getRefreshToken();
   if (!refreshToken) return body;
@@ -94,10 +88,7 @@ export async function authedExpressFetch<T>(
     { method: "POST", body: JSON.stringify({ refreshToken }) }
   );
 
-  if (!refreshed.success) {
-    clearAuthCookies();
-    return body;
-  }
+  if (!refreshed.success) return body;
 
   setAuthCookies(refreshed.data.accessToken, refreshed.data.refreshToken);
   accessToken = refreshed.data.accessToken;

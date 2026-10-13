@@ -20,7 +20,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       const user = await apiFetch<User>("/auth/me");
       set({ user, status: "authenticated" });
     } catch {
-      set({ user: null, status: "unauthenticated" });
+      set((state) =>
+        state.user
+          ? { user: state.user, status: "authenticated" }
+          : { user: null, status: "unauthenticated" }
+      );
     }
   },
 
