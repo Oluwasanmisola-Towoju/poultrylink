@@ -1,6 +1,8 @@
 const { prisma } = require('../config/dbHandler');
 const ApiError = require('../utils/ApiError');
 const escrowService = require('./escrow.service');
+const { Prisma } = require('@prisma/client');
+const { parsePositiveDecimal } = require('../utils/decimal');
 
 /**
  * Orders are single-seller (matches the doc's BUYER -> SELLER acceptance flow).
@@ -9,7 +11,11 @@ const escrowService = require('./escrow.service');
  * splitting, so the buyer sees one total per seller up front.
  */
 async function createOrder(buyerId, { items, deliveryAddress, deliveryState, deliveryLga, notes }) {
+  if (!Array.isArray(items) || items.length === 0) throw ApiError.badRequest('At least one item is required');
   const listingIds = items.map((i) => i.listingId);
+  if (new Set(listingIds).size !== listingIds.length) {
+    throw ApiError.badRequest('Each listing may only appear once in an order');
+  }
   const listings = await prisma.listing.findMany({ where: { id: { in: listingIds } } });
 
   if (listings.length !== listingIds.length) throw ApiError.badRequest('One or more listings do not exist');
@@ -24,17 +30,28 @@ async function createOrder(buyerId, { items, deliveryAddress, deliveryState, del
   const orderItemsData = items.map(({ listingId, quantity }) => {
     const listing = listings.find((l) => l.id === listingId);
     if (listing.status !== 'ACTIVE') throw ApiError.badRequest(`Listing "${listing.productName}" is not available`);
-    if (quantity < Number(listing.minOrderQuantity)) {
+    let requestedQuantity;
+    try {
+      requestedQuantity = parsePositiveDecimal(quantity, 'Quantity');
+    } catch (error) {
+      throw ApiError.badRequest(error.message);
+    }
+    if (requestedQuantity.lt(listing.minOrderQuantity)) {
       throw ApiError.badRequest(`Minimum order quantity for "${listing.productName}" is ${listing.minOrderQuantity}`);
     }
-    if (quantity > Number(listing.quantity)) {
+    if (requestedQuantity.gt(listing.quantity)) {
       throw ApiError.badRequest(`Only ${listing.quantity} ${listing.unit} available for "${listing.productName}"`);
     }
-    const subtotal = quantity * Number(listing.price);
-    return { listingId, sellerId: listing.sellerId, quantity, unitPrice: listing.price, subtotal };
+    const subtotal = requestedQuantity.mul(listing.price).toDecimalPlaces(2);
+    return { listingId, sellerId: listing.sellerId, quantity: requestedQuantity, unitPrice: listing.price, subtotal };
   });
 
-  const totalAmount = orderItemsData.reduce((sum, i) => sum + i.subtotal, 0);
+  const totalAmount = orderItemsData
+    .reduce((sum, i) => sum.add(i.subtotal), new Prisma.Decimal(0))
+    .toDecimalPlaces(2);
+  if (totalAmount.gt('9999999999.99')) {
+    throw ApiError.badRequest('Order total exceeds the maximum supported amount');
+  }
 
   const order = await prisma.order.create({
     data: {
@@ -64,7 +81,13 @@ async function createOrder(buyerId, { items, deliveryAddress, deliveryState, del
 async function getOrderOrThrow(orderId) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { items: { include: { listing: true } }, payment: true, escrow: true, delivery: true, buyer: { select: { id: true, email: true } } },
+    include: {
+      items: { include: { listing: { include: { farm: true } } } },
+      payment: true,
+      escrow: true,
+      delivery: true,
+      buyer: { select: { id: true, email: true } },
+    },
   });
   if (!order) throw ApiError.notFound('Order not found');
   return order;
@@ -176,21 +199,107 @@ async function initiatePayment(orderId, buyerId, buyerEmail) {
   return escrowService.initiateOrderPayment(order, buyerEmail);
 }
 
-async function markOutForDelivery(orderId, sellerId, transporterId) {
+async function markOutForDelivery(orderId, sellerId, transporterId, deliveryMethod = transporterId ? 'INTERNAL' : 'EXTERNAL') {
   const order = await getOrderOrThrow(orderId);
   assertParty(order, sellerId, 'seller');
   if (order.status !== 'PAID') throw ApiError.badRequest('Order must be paid before dispatch');
+  if (!['INTERNAL', 'EXTERNAL'].includes(deliveryMethod)) throw ApiError.badRequest('Invalid delivery method');
+  if (deliveryMethod === 'INTERNAL' && !transporterId) {
+    throw ApiError.badRequest('Select an available transporter before dispatch');
+  }
+  if (deliveryMethod === 'EXTERNAL' && transporterId) {
+    throw ApiError.badRequest('External delivery cannot include a platform transporter');
+  }
+
+  const transporter = transporterId && await prisma.user.findFirst({
+    where: {
+      id: transporterId,
+      role: 'TRANSPORTER',
+      isActive: true,
+      verificationStatus: 'VERIFIED',
+      deliveries: { none: { status: { in: ['ASSIGNED', 'IN_TRANSIT'] } } },
+    },
+  });
+  if (deliveryMethod === 'INTERNAL' && !transporter) throw ApiError.badRequest('The selected transporter is unavailable');
 
   await prisma.$transaction([
-    prisma.order.update({ where: { id: orderId }, data: { status: 'OUT_FOR_DELIVERY' } }),
+    prisma.order.update({
+      where: { id: orderId },
+      data: { status: deliveryMethod === 'EXTERNAL' ? 'IN_TRANSIT' : 'OUT_FOR_DELIVERY' },
+    }),
     prisma.delivery.upsert({
       where: { orderId },
-      update: { status: 'IN_TRANSIT', transporterId },
-      create: { orderId, status: 'IN_TRANSIT', transporterId, deliveryAddress: order.deliveryAddress },
+      update: {
+        status: deliveryMethod === 'EXTERNAL' ? 'IN_TRANSIT' : 'ASSIGNED',
+        transporterId: deliveryMethod === 'EXTERNAL' ? null : transporterId,
+      },
+      create: {
+        orderId,
+        status: deliveryMethod === 'EXTERNAL' ? 'IN_TRANSIT' : 'ASSIGNED',
+        transporterId: deliveryMethod === 'EXTERNAL' ? null : transporterId,
+        deliveryAddress: order.deliveryAddress,
+      },
     }),
   ]);
 
   return getOrderOrThrow(orderId);
+}
+
+async function getAvailableTransporters(orderId, farmerId) {
+  const order = await getOrderOrThrow(orderId);
+  assertParty(order, farmerId, 'seller');
+  if (order.status !== 'PAID') throw ApiError.badRequest('Transporters can only be assigned after payment');
+
+  const pickup = order.items[0]?.listing;
+  const pickupState = pickup?.state || pickup?.farm?.state || null;
+  const pickupLga = pickup?.lga || pickup?.farm?.lga || null;
+  const destinationState = order.deliveryState;
+  const destinationLga = order.deliveryLga;
+  const transporters = await prisma.user.findMany({
+    where: {
+      role: 'TRANSPORTER',
+      isActive: true,
+      verificationStatus: 'VERIFIED',
+      deliveries: { none: { status: { in: ['ASSIGNED', 'IN_TRANSIT'] } } },
+    },
+    select: {
+      id: true,
+      phone: true,
+      profile: { select: { firstName: true, lastName: true, businessName: true, state: true, lga: true } },
+    },
+  });
+
+  const normalized = (value) => String(value || '').trim().toLowerCase();
+  const same = (a, b) => Boolean(a && b && normalized(a) === normalized(b));
+
+  return transporters
+    .map((transporter) => {
+      const state = transporter.profile?.state || null;
+      const lga = transporter.profile?.lga || null;
+      let score = 1;
+      let proximity = 'Available outside matching areas';
+      if (same(lga, destinationLga) || same(lga, pickupLga)) {
+        score = 3;
+        proximity = 'Same local government area';
+      } else if (same(state, destinationState) || same(state, pickupState)) {
+        score = 2;
+        proximity = 'Same state';
+      }
+      return {
+        id: transporter.id,
+        name: transporter.profile?.businessName ||
+          [transporter.profile?.firstName, transporter.profile?.lastName].filter(Boolean).join(' ') ||
+          transporter.phone ||
+          'Transporter',
+        phone: transporter.phone,
+        state,
+        lga,
+        proximity,
+        score,
+      };
+    })
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .map(({ score: _score, ...transporter }) => transporter);
 }
 
 /**
@@ -200,11 +309,11 @@ async function markOutForDelivery(orderId, sellerId, transporterId) {
 async function confirmDelivery(orderId, buyerId) {
   const order = await getOrderOrThrow(orderId);
   assertParty(order, buyerId, 'buyer');
-  if (!['OUT_FOR_DELIVERY', 'DELIVERED', 'CONFIRMED'].includes(order.status)) {
+  if (!['IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CONFIRMED'].includes(order.status)) {
     throw ApiError.badRequest(`Order cannot be confirmed from status ${order.status}`);
   }
-  if (!order.delivery || !['DELIVERED', 'CONFIRMED'].includes(order.delivery.status)) {
-    throw ApiError.badRequest('The delivery must be marked delivered before confirmation');
+  if (!order.delivery || !['IN_TRANSIT', 'DELIVERED', 'CONFIRMED'].includes(order.delivery.status)) {
+    throw ApiError.badRequest('The delivery must be in transit or marked delivered before confirmation');
   }
 
   await prisma.$transaction([
@@ -243,6 +352,7 @@ module.exports = {
   cancelOrder,
   initiatePayment,
   markOutForDelivery,
+  getAvailableTransporters,
   confirmDelivery,
   disputeOrder,
   assertParty,

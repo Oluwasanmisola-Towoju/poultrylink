@@ -118,7 +118,12 @@ async function requestPasswordReset(email) {
     await otpService.createAndSendOtp(user.id, 'PASSWORD_RESET');
 }
 
-async function resetPassword({ userId, code, newPassword }) {
+async function resetPassword({ email, code, newPassword }) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    // Same message as a wrong code, so this doesn't reveal which emails exist.
+    if (!user) throw ApiError.badRequest('Invalid or expired code');
+    const userId = user.id;
+
     const result = await otpService.verifyOtp(userId, code, 'PASSWORD_RESET');
     if (!result.valid) throw ApiError.badRequest(result.reason);
 
@@ -126,7 +131,7 @@ async function resetPassword({ userId, code, newPassword }) {
     await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
 
     // revoke all existing refresh tokens on resetting password
-    await prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } })
+    await prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
 }
 
 module.exports = {
