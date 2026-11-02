@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api/client";
 import type { UserRole } from "@/types";
 import { useQueryClient } from "@tanstack/react-query";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 const LINKS = [
   { href: "/marketplace", label: "Marketplace" },
@@ -87,6 +88,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             {isAuthed ? (
               <>
+                <NotificationBell />
                 <Link href="/profile" className="text-sm font-bold hover:opacity-70">
                   {user.profile?.firstName ?? "Account"}
                 </Link>
@@ -105,6 +107,12 @@ export function Navbar() {
               </>
             )}
           </div>
+
+          {isAuthed && (
+            <div className="md:hidden">
+              <NotificationBell />
+            </div>
+          )}
 
           <button
             type="button"
