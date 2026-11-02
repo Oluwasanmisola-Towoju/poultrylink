@@ -46,7 +46,10 @@ export function useSetVerificationStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: "VERIFIED" | "REJECTED" }) =>
       apiFetch<AdminUser>(`/admin/users/${id}/verification`, { method: "PATCH", body: JSON.stringify({ status }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+    },
   });
 }
 
@@ -55,6 +58,9 @@ export function useSetActiveStatus() {
   return useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       apiFetch<AdminUser>(`/admin/users/${id}/active`, { method: "PATCH", body: JSON.stringify({ isActive }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+    },
   });
 }

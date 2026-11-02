@@ -17,10 +17,17 @@ router.post('/:id/accept', requireRole('FARMER'), validate(schema.idParam), cont
 router.post('/:id/reject', requireRole('FARMER'), validate(schema.idParam), controller.reject);
 router.post('/:id/cancel', requireRole('BUYER'), validate(schema.cancelOrder), controller.cancel);
 router.post('/:id/pay', requireRole('BUYER'), validate(schema.idParam), controller.pay);
+router.get('/:id/available-transporters', requireRole('FARMER'), validate(schema.idParam), controller.availableTransporters);
 router.post(
   '/:id/dispatch',
   requireRole('FARMER'),
-  validate({ params: schema.idParam.params, body: z.object({ transporterId: z.string().uuid().optional() }) }),
+  validate({
+    params: schema.idParam.params,
+    body: z.object({
+      deliveryMethod: z.enum(['INTERNAL', 'EXTERNAL']).default('INTERNAL'),
+      transporterId: z.string().uuid().optional(),
+    }),
+  }),
   controller.dispatch
 );
 router.post('/:id/confirm-delivery', requireRole('BUYER'), validate(schema.idParam), controller.confirmDelivery);

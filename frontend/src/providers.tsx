@@ -8,10 +8,16 @@ function AuthHydrator({ children }: { children: React.ReactNode }) {
   const hydrate = useAuthStore((s) => s.hydrate);
   useEffect(() => {
     hydrate();
-    // Runs once on mount — this is the one place the app checks whether the
-    // httpOnly cookies still represent a valid session.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const refreshSession = () => {
+      if (document.visibilityState === "visible") hydrate();
+    };
+    const interval = window.setInterval(refreshSession, 30_000);
+    window.addEventListener("focus", refreshSession);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshSession);
+    };
+  }, [hydrate]);
   return <>{children}</>;
 }
 
@@ -20,7 +26,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false },
+          queries: {
+            staleTime: 0,
+            retry: 1,
+            refetchOnMount: true,
+            refetchOnWindowFocus: true,
+          },
         },
       })
   );

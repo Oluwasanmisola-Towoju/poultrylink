@@ -12,26 +12,36 @@ const createFarm = {
   }),
 };
 
+const listingFields = {
+  farmId: z.string().uuid().optional(),
+  categoryId: z.string().uuid(),
+  productName: z.string().min(1).max(150),
+  description: z.string().max(1000).optional(),
+  quantity: z.number().finite().positive().max(9999999999.99),
+  unit: z.string().min(1).max(30),
+  price: z.number().finite().positive().max(9999999999.99),
+  minOrderQuantity: z.number().finite().positive().max(9999999999.99).optional(),
+  location: z.string().max(150).optional(),
+  state: z.string().max(80).optional(),
+  lga: z.string().max(80).optional(),
+  availabilityDate: z.string().datetime().optional(),
+  images: z.array(z.string().url()).max(10).optional(),
+};
+
 const createListing = {
-  body: z.object({
-    farmId: z.string().uuid().optional(),
-    categoryId: z.string().uuid(),
-    productName: z.string().min(1).max(150),
-    description: z.string().max(1000).optional(),
-    quantity: z.number().positive(),
-    unit: z.string().min(1).max(30),
-    price: z.number().positive(),
-    minOrderQuantity: z.number().positive().optional(),
-    location: z.string().max(150).optional(),
-    state: z.string().max(80).optional(),
-    lga: z.string().max(80).optional(),
-    availabilityDate: z.string().datetime().optional(),
-    images: z.array(z.string().url()).max(10).optional(),
+  body: z.object(listingFields).superRefine((listing, ctx) => {
+    if (listing.minOrderQuantity !== undefined && listing.minOrderQuantity > listing.quantity) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['minOrderQuantity'],
+        message: 'Minimum order quantity cannot exceed available quantity',
+      });
+    }
   }),
 };
 
 const updateListing = {
-  body: createListing.body.partial().extend({
+  body: z.object(listingFields).partial().extend({
     status: z.enum(['ACTIVE', 'SOLD_OUT', 'INACTIVE']).optional(),
   }),
   params: z.object({ id: z.string().uuid() }),

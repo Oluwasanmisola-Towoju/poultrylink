@@ -55,13 +55,13 @@ const myListings = asyncHandler(async (req, res) => {
     const { page, limit, skip } = getPagination(req.query);
     const [listings, total] = await Promise.all([
         prisma.listing.findMany({
-            where: { sellerId: req.user.id },
+            where: { sellerId: req.user.id, status: { not: 'INACTIVE' } },
             include: { images: true, category: true },
             skip,
             take: limit,
             orderBy: { createdAt: 'desc' }
         }),
-        prisma.listing.count({ where: { sellerId: req.user.id } })
+        prisma.listing.count({ where: { sellerId: req.user.id, status: { not: 'INACTIVE' } } })
     ]);
     sendSuccess(res, { message: 'Your listings', data: listings, meta: buildMeta({ page, limit, total }) });
 });
@@ -72,6 +72,11 @@ const updateListing = asyncHandler(async (req, res) => {
     if (existing.sellerId !== req.user.id) throw ApiError.forbidden('You do not own this listing');
 
     const { images, farmId, ...rest } = req.body;
+    const nextQuantity = rest.quantity === undefined ? existing.quantity : rest.quantity;
+    const nextMinimum = rest.minOrderQuantity === undefined ? existing.minOrderQuantity : rest.minOrderQuantity;
+    if (Number(nextMinimum) > Number(nextQuantity)) {
+        throw ApiError.badRequest('Minimum order quantity cannot exceed available quantity');
+    }
     if (farmId !== undefined) {
         const farm = await prisma.farm.findUnique({ where: { id: farmId } });
         if (!farm || farm.ownerId !== req.user.id) {

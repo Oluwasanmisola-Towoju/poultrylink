@@ -37,6 +37,9 @@ export function ListingCard({ listing }: { listing: Listing }) {
           <p className="text-xs text-muted-foreground mt-1">
             {formatQuantity(listing.quantity, listing.unit)} available
           </p>
+          <p className="text-xs font-semibold text-muted-foreground mt-1">
+            Min. order: {formatQuantity(listing.minOrderQuantity, listing.unit)}
+          </p>
           <p className="text-xs text-muted-foreground mt-2 flex items-center justify-between">
             <span className="truncate">{sellerName}</span>
             {listing.state && <span>{listing.state}</span>}

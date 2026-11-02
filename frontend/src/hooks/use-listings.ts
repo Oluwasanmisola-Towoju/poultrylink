@@ -6,7 +6,8 @@ export interface ListingFilters {
   q?: string;
   categoryId?: string;
   state?: string;
-  sort?: "newest" | "price_asc" | "price_desc";
+  minPrice?: number;
+  maxPrice?: number;
   page?: number;
 }
 
@@ -15,7 +16,8 @@ function toQueryString(filters: ListingFilters) {
   if (filters.q) params.set("q", filters.q);
   if (filters.categoryId) params.set("categoryId", filters.categoryId);
   if (filters.state) params.set("state", filters.state);
-  if (filters.sort) params.set("sort", filters.sort);
+  if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
+  if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
   if (filters.page && filters.page > 1) params.set("page", String(filters.page));
   const qs = params.toString();
   return qs ? `?${qs}` : "";

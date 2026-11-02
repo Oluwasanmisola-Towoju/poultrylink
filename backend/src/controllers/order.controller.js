@@ -110,8 +110,18 @@ const pay = asyncHandler(async (req, res) => {
 });
 
 const dispatch = asyncHandler(async (req, res) => {
-    const order = await orderService.markOutForDelivery(req.params.id, req.user.id, req.body.transporterId);
-    sendSuccess(res, { message: 'Order marked out for delivery', data: { order } });
+    const order = await orderService.markOutForDelivery(
+        req.params.id,
+        req.user.id,
+        req.body.transporterId,
+        req.body.deliveryMethod
+    );
+    sendSuccess(res, { message: 'Order dispatch method recorded', data: { order } });
+});
+
+const availableTransporters = asyncHandler(async (req, res) => {
+    const transporters = await orderService.getAvailableTransporters(req.params.id, req.user.id);
+    sendSuccess(res, { message: 'Available transporters', data: { transporters } });
 });
 
 const confirmDelivery = asyncHandler(async (req, res) => {
@@ -124,4 +134,4 @@ const dispute = asyncHandler(async (req, res) => {
     sendSuccess(res, { message: 'Order disputed - an admin will review', data: { escrow } });
 });
 
-module.exports = { create, getOne, myOrdersAsBuyer, myOrdersAsSeller, accept, reject, cancel, pay, dispatch, confirmDelivery, dispute };
+module.exports = { create, getOne, myOrdersAsBuyer, myOrdersAsSeller, accept, reject, cancel, pay, dispatch, availableTransporters, confirmDelivery, dispute };

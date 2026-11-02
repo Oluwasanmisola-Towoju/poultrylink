@@ -14,6 +14,7 @@ import {
   useCancelOrder,
   usePayOrder,
   useDispatchOrder,
+  useAvailableTransporters,
   useConfirmDelivery,
   useDisputeOrder,
 } from "@/hooks/use-orders";
@@ -45,12 +46,18 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [selectedTransporterId, setSelectedTransporterId] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState<"INTERNAL" | "EXTERNAL">("INTERNAL");
+  const isSeller = Boolean(order && order.items[0]?.sellerId === user?.id);
+  const availableTransporters = useAvailableTransporters(
+    params.id,
+    isSeller && order?.status === "PAID"
+  );
 
   if (isLoading) return <main className="px-6 py-16 text-center text-muted-foreground">Loading order…</main>;
   if (!order) return <main className="px-6 py-16 text-center text-muted-foreground">Order not found.</main>;
 
   const isBuyer = user?.id === order.buyerId;
-  const isSeller = order.items[0]?.sellerId === user?.id;
 
   async function run<T>(mutateAsync: () => Promise<T>) {
     setActionError(null);
@@ -146,13 +153,76 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
       )}
 
       {isSeller && order.status === "PAID" && (
-        <Button
-          className="w-full mt-6"
-          disabled={dispatch.isPending}
-          onClick={() => run(() => dispatch.mutateAsync({ id: order.id }))}
-        >
-          Mark as dispatched
-        </Button>
+        <div className="mt-6 space-y-3">
+          <div>
+            <label htmlFor="delivery-method" className="text-sm font-semibold">
+              Delivery method
+            </label>
+            <select
+              id="delivery-method"
+              value={deliveryMethod}
+              onChange={(event) => {
+                setDeliveryMethod(event.target.value as "INTERNAL" | "EXTERNAL");
+                setSelectedTransporterId("");
+              }}
+              disabled={dispatch.isPending}
+              className="mt-1 w-full rounded-xl border-2 border-foreground/15 bg-background px-3 py-2 text-sm"
+            >
+              <option value="INTERNAL">Use a PoultryLink transporter</option>
+              <option value="EXTERNAL">I will arrange external delivery</option>
+            </select>
+          </div>
+          {deliveryMethod === "INTERNAL" && <div>
+            <label htmlFor="transporter" className="text-sm font-semibold">
+              Select an available transporter
+            </label>
+            <select
+              id="transporter"
+              value={selectedTransporterId}
+              onChange={(event) => setSelectedTransporterId(event.target.value)}
+              disabled={availableTransporters.isLoading || dispatch.isPending}
+              className="mt-1 w-full rounded-xl border-2 border-foreground/15 bg-background px-3 py-2 text-sm"
+            >
+              <option value="">
+                {availableTransporters.isLoading ? "Finding transporters…" : "Choose a transporter"}
+              </option>
+              {availableTransporters.data?.transporters.map((transporter) => (
+                <option key={transporter.id} value={transporter.id}>
+                  {transporter.name} — {transporter.proximity}
+                  {transporter.lga || transporter.state
+                    ? ` (${[transporter.lga, transporter.state].filter(Boolean).join(", ")})`
+                    : ""}
+                </option>
+              ))}
+            </select>
+            {!availableTransporters.isLoading && !availableTransporters.data?.transporters.length && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                No verified transporters are currently available.
+              </p>
+            )}
+          </div>}
+          <Button
+            className="w-full"
+            disabled={dispatch.isPending || (deliveryMethod === "INTERNAL" && !selectedTransporterId)}
+            onClick={() =>
+              run(() =>
+                dispatch.mutateAsync({
+                  id: order.id,
+                  body: {
+                    deliveryMethod,
+                    ...(deliveryMethod === "INTERNAL" ? { transporterId: selectedTransporterId } : {}),
+                  },
+                })
+              )
+            }
+          >
+            {dispatch.isPending
+              ? "Dispatching…"
+              : deliveryMethod === "INTERNAL"
+                ? "Assign transporter and dispatch"
+                : "Record external delivery and dispatch"}
+          </Button>
+        </div>
       )}
 
       {isBuyer && ["PENDING_ACCEPTANCE", "ACCEPTED", "AWAITING_PAYMENT"].includes(order.status) && (

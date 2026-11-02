@@ -6,7 +6,7 @@ const createOrder = {
       .array(
         z.object({
           listingId: z.string().uuid(),
-          quantity: z.number().positive(),
+          quantity: z.number().finite().positive().max(9999999999.99),
         })
       )
       .min(1),

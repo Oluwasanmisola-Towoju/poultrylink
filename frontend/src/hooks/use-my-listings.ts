@@ -30,7 +30,28 @@ export function useCreateListing() {
   return useMutation({
     mutationFn: (input: CreateListingInput) =>
       apiFetch<Listing>("/listings", { method: "POST", body: JSON.stringify(input) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["listings", "mine"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["listings", "mine"] });
+      queryClient.invalidateQueries({ queryKey: ["listings"] });
+    },
+  });
+}
+
+export interface UpdateListingInput {
+  quantity?: number;
+  price?: number;
+  minOrderQuantity?: number;
+}
+
+export function useUpdateListing() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateListingInput & { id: string }) =>
+      apiFetch<Listing>(`/listings/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["listings", "mine"] });
+      queryClient.invalidateQueries({ queryKey: ["listings"] });
+    },
   });
 }
 
@@ -38,6 +59,12 @@ export function useDeleteListing() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiFetch(`/listings/${id}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["listings", "mine"] }),
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<{ data: Listing[]; meta?: unknown }>(["listings", "mine"], (current) =>
+        current ? { ...current, data: current.data.filter((listing) => listing.id !== id) } : current
+      );
+      queryClient.invalidateQueries({ queryKey: ["listings", "mine"] });
+      queryClient.invalidateQueries({ queryKey: ["listings"] });
+    },
   });
 }
